@@ -1,0 +1,15 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "cSpell.words": [
+    "nextjs",
+    "prehydrate",
+    "reserialize",
+    "supabase",
+    "undelegated",
+    "vercel",
+    "zustand"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  }
+}

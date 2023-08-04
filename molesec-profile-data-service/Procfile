@@ -1,0 +1,2 @@
+release: python manage.py migrate --noinput
+web: gunicorn app.wsgi --log-file - --keep-alive 30 --workers 1 --worker-class eventlet

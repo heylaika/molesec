@@ -1,0 +1,9 @@
+build/
+coverage/
+.next/
+.cache/
+.vscode/
+npm_modules/
+dist/
+pnpm-lock.yaml
+src/generated-types/

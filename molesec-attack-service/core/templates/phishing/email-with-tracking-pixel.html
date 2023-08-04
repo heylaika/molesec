@@ -1,0 +1,11 @@
+{% autoescape off %} {% for paragraph in paragraphs %}
+<p>{{ paragraph }}</p>
+{% endfor %}
+<img
+  src="{{ tracking_pixel_url }}"
+  alt=""
+  width="1"
+  height="1"
+  style="display: none"
+/>
+{% endautoescape %}

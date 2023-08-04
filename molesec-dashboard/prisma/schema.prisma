@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Team {
+  /// An auto-generated unique identifier.
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// A fitting name for the team, e.g. "Safe Bank Red Team".
+  name             String
+  /// This is generally the ID of the user that created the team.
+  /// - The owner of the team may become a member without an invite.
+  /// - The owner of the team may NOT leave the team without first transferring ownership.
+  /// Besides this, being the owner does (in itself) not grant any special privilges.
+  owner_user_id    String
+  /// The name of the organization that the team belongs to, e.g. "Safe Bank".
+  org_name         String
+  /// A unique identifier for the organization that the team belongs to.
+  /// This maps to an organization in the upstream profile service.
+  org_id           String             @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// URLs associated with the teams organization, LinkedIn, home page, etc ...
+  org_urls         String[]
+  /// The email provider the team uses: "Google", "Office365" or "Unknown"
+  /// The whitelisting procedure looks different depending on provider.
+  email_provider   String             @default("Unknown")
+  /// The members of the team.
+  Memberships      TeamMembership[]
+  /// The currently pending invites to this team.
+  Invites          TeamInvite[]
+  /// The campaigns that are owned by this team.
+  Campaigns        Campaign[]
+  /// The activity that happened during the campaigns that are owned by this team.
+  CampaignActivity CampaignActivity[]
+  /// The domains that this team administrates
+  Domains          Domain[]
+}
+
+model TeamMembership {
+  /// The ID of the member of the team.
+  /// We don't have this ID on record, it comes from Auth0.
+  /// Together with the `team_id` this is the primary key,
+  /// ensuring that a user can only be a member of an team once.
+  user_id   String
+  /// The ID of the team that the user is member of.
+  /// Together with the `user_id` this is the primary key,
+  /// ensuring that a user can only be a member of an team once.
+  team_id   String   @db.Uuid
+  /// When the user joined the team.
+  joined_at DateTime @default(now())
+  /// The email that the user used to join the team.
+  /// This email must always match the one from the invite.
+  email     String
+  /// The team that the user is a member of
+  Team      Team     @relation(fields: [team_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, team_id])
+}
+
+model TeamInvite {
+  /// The email that was invited to the team.
+  /// Together with the `team_id` this is the primary key,
+  /// ensuring that an email can only be invited to an team once.
+  email         String
+  /// The ID of the team that the user was invited to.
+  /// Together with the `email` this is the primary key,
+  /// ensuring that an email can only be invited to an team once.
+  team_id       String   @db.Uuid
+  /// The email of the user that created the invite.
+  inviter_email String
+  /// When the invite was created
+  invited_at    DateTime @default(now())
+  /// The Team that the user was invited to
+  Team          Team     @relation(fields: [team_id], references: [id], onDelete: Cascade)
+
+  @@id([email, team_id])
+}
+
+/// Only accounts that are in this table are allowed to log in.
+model ProductInvite {
+  /// The Auth0 user email that was invited to the product.
+  email         String   @id
+  /// The email of the person that invited the user
+  inviter_email String
+  /// When person was invited
+  invited_at    DateTime @default(now())
+}
+
+model Campaign {
+  /// An auto-generated unique identifier.
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The ID of the team that owns the campaign.
+  team_id          String             @db.Uuid
+  /// The name of the campaign.
+  name             String
+  /// When the campaign was created.
+  created_at       DateTime           @default(now())
+  /// The date for when the campaign is scheduled to start.
+  start_date       DateTime           @default(now())
+  /// For how many days the campaign lasts.
+  duration_days    Int
+  /// The high-level objective of the campaign.
+  /// Who to target, what to do, when to start, etc...
+  objective        Json
+  /// An object that maps the target emails of the campaign
+  /// to attack IDs in the upstream attack service.
+  attacks          Json
+  /// The ID of the user that created the campaign.
+  creator_user_id  String
+  /// The team that owns the campaign.
+  Team             Team               @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  /// Activity that happened during the campaign.
+  CampaignActivity CampaignActivity[]
+}
+
+model Domain {
+  /// An auto-generated unique identifier.
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The team that administrates the domain.
+  team_id        String  @db.Uuid
+  /// The domain name.
+  name           String
+  /// Whether the user that set up the domain has verified that they
+  /// are the domain owner. This usually happens automatically
+  /// if the user that creates the domain has verified their email.
+  is_verified    Boolean @default(false)
+  /// Whether the team has completed domain delegation.
+  is_delegated   Boolean @default(false)
+  /// The email provider for the domain: "Google", "Office365", or "Unknown".
+  email_provider String  @default("Unknown")
+  /// The team that owns the campaign.
+  Team           Team    @relation(fields: [team_id], references: [id], onDelete: Cascade)
+}
+
+/// An activity that happened during a campaign.
+model CampaignActivity {
+  /// An auto-generated unique identifier.
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The ID of the team that owns the campaign.
+  team_id       String   @db.Uuid
+  /// The type of activity that was performed.
+  activity_type String
+  /// The ID of the campaign that this activity is for.
+  campaign_id   String   @db.Uuid
+  /// The ID of the user that performed the activity.
+  /// If this is set, then the activity was performed by a user.
+  user_id       String?
+  /// The ID of the attack that was performed. 
+  /// If this is set, then the activity was related to an attack.
+  attack_id     String?
+  /// The ID of the attack log entry in the upstream attack service. 
+  /// If this is set, then the activity was a related to an event during an attack.
+  attack_log_id String?
+  /// The time that the activity was performed.
+  performed_at  DateTime @default(now())
+  /// Data that is related to this type of activity.
+  payload       Json
+  /// The campaign that this activity is for.
+  Campaign      Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  /// The team that owns the campaign.
+  Team          Team     @relation(fields: [team_id], references: [id], onDelete: Cascade)
+}
